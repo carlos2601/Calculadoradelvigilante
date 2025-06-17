@@ -597,14 +597,135 @@
             
             // Funciones auxiliares
             function isSunday(dateString) {
-                const date = new Date(dateString);
-                return date.getUTCDay() === 0; // 0 = Domingo, 1 = Lunes, etc.
+                // dateString is 'YYYY-MM-DD'
+                // Important: JavaScript's Date constructor interprets 'YYYY-MM-DD' as UTC.
+                // To correctly determine the day in Colombia (UTC-5), we need to account for this.
+                // If '2023-10-01' is a Sunday in UTC, it might be Saturday evening in Colombia.
+                // A reliable way is to construct the date with a time component and timezone offset.
+                const date = new Date(dateString + 'T12:00:00-05:00'); // Noon in Colombia
+                return date.getDay() === 0; // getDay() is locale-dependent; 0 for Sunday
             }
             
-            function isHoliday(date) {
-                const year = date.getFullYear();
-                const dateStr = date.toISOString().split('T')[0];
-                return holidays[year] && holidays[year].includes(dateStr);
+            function isHoliday(date) { // date is a Date object, assumed to be in local (server) timezone
+                                       // but representing a conceptual date in Colombia.
+                // To reliably check against a 'YYYY-MM-DD' holiday list, format the Date object
+                // as 'YYYY-MM-DD' *as it would be in Colombia*.
+                const year = date.getFullYear(); // This will be correct if date was created with -05:00
+                const month = (date.getMonth() + 1).toString().padStart(2, '0'); // getMonth is 0-indexed
+                const day = date.getDate().toString().padStart(2, '0'); // getDate is 1-indexed
+                const dateStrInColombia = `${year}-${month}-${day}`;
+
+                return holidays[year] && holidays[year].includes(dateStrInColombia);
+            }
+
+            // Helper function to get day type (normal, sunday, festive)
+            function determineDayType(dateStringForSundayCheck, dateObjectForHolidayCheck) {
+                // dateStringForSundayCheck is 'YYYY-MM-DD' for isSunday
+                // dateObjectForHolidayCheck is a Date object representing the calendar date in Colombia for isHoliday
+                if (isSunday(dateStringForSundayCheck)) {
+                    return 'sunday';
+                } else if (isHoliday(dateObjectForHolidayCheck)) {
+                    return 'festive';
+                }
+                return 'normal';
+            }
+
+            // Helper function to calculate hours for a specific time segment within a single day
+            function calculateHoursForDaySegment(segmentStart, segmentEnd, dayType, accumulatedOrdinaryHoursToday) {
+                // segmentStart and segmentEnd are Date objects (in Colombian TZ context)
+                // dayType is 'normal', 'sunday', or 'festive'
+                // accumulatedOrdinaryHoursToday is the count of ordinary hours already worked *on that specific calendar day*
+
+                let ordinaryDay = 0, ordinaryNight = 0;
+                let extraDay = 0, extraNight = 0;
+                let sundayBase = 0, sundayExtra = 0;
+                let festiveBase = 0, festiveExtra = 0;
+
+                const DAY_START_HOUR = 6; // 6:00 am
+                const NIGHT_START_HOUR = 21; // 9:00 pm
+                const ORDINARY_LIMIT_HOURS = 8;
+
+                let current = new Date(segmentStart);
+
+                while (current < segmentEnd) {
+                    const iterationEnd = new Date(current.getTime() + 15 * 60000); // 15-min segments
+                    const realEnd = iterationEnd > segmentEnd ? segmentEnd : iterationEnd;
+                    const duration = (realEnd - current) / (1000 * 60 * 60);
+
+                    if (duration <= 0) {
+                        current = realEnd;
+                        continue;
+                    }
+
+                    const currentHour = current.getHours(); // Hour in Colombian timezone
+                    const isNightTime = currentHour >= NIGHT_START_HOUR || currentHour < DAY_START_HOUR;
+
+                    if (dayType === 'sunday') {
+                        // On Sundays, first 8 hours are "sunday base", rest are "sunday extra"
+                        // No distinction between day/night for these categories in the provided return structure.
+                        // The rate for sunday/extraSunday implicitly covers day/night.
+                        if (sundayBase < ORDINARY_LIMIT_HOURS) {
+                            const remainingBase = ORDINARY_LIMIT_HOURS - sundayBase;
+                            if (duration <= remainingBase) {
+                                sundayBase += duration;
+                            } else {
+                                sundayBase += remainingBase;
+                                sundayExtra += (duration - remainingBase);
+                            }
+                        } else {
+                            sundayExtra += duration;
+                        }
+                    } else if (dayType === 'festive') {
+                        // Similar logic for festive days
+                        if (festiveBase < ORDINARY_LIMIT_HOURS) {
+                            const remainingBase = ORDINARY_LIMIT_HOURS - festiveBase;
+                            if (duration <= remainingBase) {
+                                festiveBase += duration;
+                            } else {
+                                festiveBase += remainingBase;
+                                festiveExtra += (duration - remainingBase);
+                            }
+                        } else {
+                            festiveExtra += duration;
+                        }
+                    } else { // normal day
+                        const totalOrdinaryForThisDaySegment = ordinaryDay + ordinaryNight;
+                        // Check against (ORDINARY_LIMIT_HOURS - accumulatedOrdinaryHoursToday)
+                        // to see if ordinary limit *for the day* has been reached.
+                        if (accumulatedOrdinaryHoursToday + totalOrdinaryForThisDaySegment < ORDINARY_LIMIT_HOURS) {
+                            const remainingOrdinaryForDay = ORDINARY_LIMIT_HOURS - (accumulatedOrdinaryHoursToday + totalOrdinaryForThisDaySegment);
+                            if (duration <= remainingOrdinaryForDay) { // Segment fits entirely within remaining ordinary time for the day
+                                if (isNightTime) ordinaryNight += duration;
+                                else ordinaryDay += duration;
+                            } else { // Segment crosses from ordinary to extra
+                                if (isNightTime) {
+                                    ordinaryNight += remainingOrdinaryForDay;
+                                    extraNight += (duration - remainingOrdinaryForDay);
+                                } else {
+                                    ordinaryDay += remainingOrdinaryForDay;
+                                    // If it crosses into night time as well, this needs more granular split.
+                                    // For simplicity, assume 15-min block stays day or night.
+                                    // This is a limitation if a 15-min block itself crosses day/night AND ord/extra.
+                                    // Given 15-min granularity, this edge case is minor.
+                                    extraDay += (duration - remainingOrdinaryForDay);
+                                }
+                            }
+                        } else { // Already in extra time for the day
+                            if (isNightTime) extraNight += duration;
+                            else extraDay += duration;
+                        }
+                    }
+                    current = realEnd;
+                }
+
+                return {
+                    normal: ordinaryDay, night: ordinaryNight,
+                    extraDay: extraDay, extraNight: extraNight,
+                    sunday: sundayBase, extraSunday: sundayExtra,
+                    festive: festiveBase, extraFestive: festiveExtra,
+                    // Return the ordinary hours processed in *this segment* for normal days
+                    processedOrdinaryInSegment: ordinaryDay + ordinaryNight
+                };
             }
             
             function formatDate(dateString) {
@@ -615,83 +736,87 @@
                 return date.toLocaleDateString('es-ES', options);
             }
             
-            function calculateWorkHours(startDate, startTime, endDate, endTime, dayType) {
-                // Ajustar fechas a zona horaria colombiana
-                const start = new Date(`${startDate}T${startTime}-05:00`); // UTC-5
-                const end = new Date(`${endDate}T${endTime}-05:00`); // UTC-5
-                
-                const totalMs = end - start;
-                const totalHours = totalMs / (1000 * 60 * 60);
-                
-                const DAY_START = 6; // 6:00 am
-                const NIGHT_START = 21; // 9:00 pm
-                
-                let current = new Date(start);
-                let ordinaryDay = 0, ordinaryNight = 0;
-                let extraDay = 0, extraNight = 0;
-                
-                if (dayType === 'sunday' || dayType === 'festive') {
-                    const baseHours = Math.min(8, totalHours);
-                    const extraHours = Math.max(0, totalHours - 8);
-                    
-                    if (dayType === 'sunday') {
-                        return {
-                            sunday: baseHours,
-                            extraSunday: extraHours,
-                            night: 0,
-                            extraNight: 0,
-                            normal: 0,
-                            extraDay: 0,
-                            festive: 0,
-                            extraFestive: 0
-                        };
-                    } else {
-                        return {
-                            festive: baseHours,
-                            extraFestive: extraHours,
-                            night: 0,
-                            extraNight: 0,
-                            normal: 0,
-                            extraDay: 0,
-                            sunday: 0,
-                            extraSunday: 0
-                        };
-                    }
-                }
-                
-                const ordinaryLimit = 8;
-                
-                while (current < end) {
-                    const segmentEnd = new Date(current.getTime() + 15 * 60000);
-                    const realEnd = segmentEnd > end ? end : segmentEnd;
-                    
-                    const duration = (realEnd - current) / (1000 * 60 * 60);
-                    const currentHour = current.getHours();
-                    
-                    const isNightTime = currentHour >= NIGHT_START || currentHour < DAY_START;
-                    const isOrdinary = (ordinaryDay + ordinaryNight) < ordinaryLimit;
-                    
-                    if (isOrdinary) {
-                        if (isNightTime) ordinaryNight += duration;
-                        else ordinaryDay += duration;
-                    } else {
-                        if (isNightTime) extraNight += duration;
-                        else extraDay += duration;
-                    }
-                    
-                    current = realEnd;
-                }
-                
-                return {
-                    normal: ordinaryDay,
-                    night: ordinaryNight,
-                    extraDay: extraDay,
-                    extraNight: extraNight,
-                    festive: 0,
-                    extraFestive: 0,
-                    sunday: 0,
-                    extraSunday: 0
+            function calculateWorkHours(startDateStr, startTimeStr, endDateStr, endTimeStr, startDayType) {
+                // startDateStr, endDateStr are 'YYYY-MM-DD'
+                // startTimeStr, endTimeStr are 'HH:MM'
+                // startDayType is the type of the startDateStr (passed from caller)
+
+                const results = {
+                    normal: 0, night: 0, extraDay: 0, extraNight: 0,
+                    festive: 0, extraFestive: 0, sunday: 0, extraSunday: 0
                 };
+
+                const addHours = (segmentHours) => {
+                    results.normal += segmentHours.normal;
+                    results.night += segmentHours.night;
+                    results.extraDay += segmentHours.extraDay;
+                    results.extraNight += segmentHours.extraNight;
+                    results.festive += segmentHours.festive;
+                    results.extraFestive += segmentHours.extraFestive;
+                    results.sunday += segmentHours.sunday;
+                    results.extraSunday += segmentHours.extraSunday;
+                };
+
+                // Helper to create Date objects in Colombian context
+                const createColombianDate = (dateStr, timeStr) => new Date(`${dateStr}T${timeStr}-05:00`);
+
+                let currentSegmentStart = createColombianDate(startDateStr, startTimeStr);
+                const overallEnd = createColombianDate(endDateStr, endTimeStr);
+
+                if (currentSegmentStart >= overallEnd) return results; // No duration or invalid
+
+                let accumulatedOrdinaryForDay = 0; // Tracks ordinary hours for the current calendar day (for normal days)
+
+                while (currentSegmentStart < overallEnd) {
+                    // Determine the calendar date string (YYYY-MM-DD) for the current segment in Colombian time
+                    // This is tricky with Date objects. Forcing UTC interpretation then adding offset for display/logic
+                    // is one way, but direct construction with offset is better.
+                    // Since currentSegmentStart is already a Date object representing Colombian time:
+                    const tempYear = currentSegmentStart.getFullYear();
+                    const tempMonth = (currentSegmentStart.getMonth() + 1).toString().padStart(2, '0');
+                    const tempDay = currentSegmentStart.getDate().toString().padStart(2, '0');
+                    const currentSegmentDateStr = `${tempYear}-${tempMonth}-${tempDay}`;
+
+                    // Determine end of this processing segment: either overallEnd or midnight of currentSegmentStart's day
+                    let endOfCurrentDay = new Date(currentSegmentStart);
+                    endOfCurrentDay.setHours(24, 0, 0, 0); // Midnight, effectively start of next day
+
+                    const segmentActualEnd = new Date(Math.min(overallEnd.getTime(), endOfCurrentDay.getTime()));
+
+                    // Determine day type for the currentSegmentDateStr
+                    let actualDayType;
+                    // The Date object for isHoliday needs to represent the calendar date correctly.
+                    // currentSegmentStart is fine as it's already in the correct "local" (Colombian) time.
+                    if (currentSegmentDateStr === startDateStr) { // First day of the shift
+                        actualDayType = startDayType;
+                    } else { // Subsequent day
+                        actualDayType = determineDayType(currentSegmentDateStr, currentSegmentStart);
+                    }
+                    
+                    const segmentHoursResult = calculateHoursForDaySegment(
+                        currentSegmentStart,
+                        segmentActualEnd,
+                        actualDayType,
+                        accumulatedOrdinaryForDay
+                    );
+                    addHours(segmentHoursResult);
+
+                    // Update for next iteration
+                    if (actualDayType === 'normal') {
+                        accumulatedOrdinaryForDay += segmentHoursResult.processedOrdinaryInSegment;
+                    }
+
+                    // If segmentActualEnd is at midnight (i.e., we are transitioning to a new day)
+                    if (segmentActualEnd.getTime() === endOfCurrentDay.getTime()) {
+                        accumulatedOrdinaryForDay = 0; // Reset for the new calendar day
+                    }
+                    // If segmentActualEnd is overallEnd and it's before midnight, accumulatedOrdinaryForDay carries over
+                    // but the loop will terminate.
+                    
+                    currentSegmentStart = new Date(segmentActualEnd);
+                }
+
+                return results;
             }
             
             function getDayTypeName(type) {
@@ -1181,6 +1306,81 @@
                 }
             `;
             document.head.appendChild(style);
+
+            // --- Test Suite for calculateWorkHours ---
+            let currentTestInputForLogging;
+            function simpleAssertEqual(actual, expected, testName) {
+                const defaultKeys = { normal: 0, night: 0, extraDay: 0, extraNight: 0, festive: 0, extraFestive: 0, sunday: 0, extraSunday: 0 };
+                const actualFull = { ...defaultKeys, ...actual };
+                const expectedFull = { ...defaultKeys, ...expected };
+                const actualStr = JSON.stringify(actualFull);
+                const expectedStr = JSON.stringify(expectedFull);
+
+                if (actualStr === expectedStr) {
+                    console.log(`PASS: ${testName}`);
+                } else {
+                    console.error(`FAIL: ${testName}`);
+                    console.log("   Input:", currentTestInputForLogging);
+                    console.log("   Actual:", actualFull);
+                    console.log("   Expected:", expectedFull);
+                }
+            }
+
+            function runWorkHoursTests() {
+                console.log("--- Running calculateWorkHours Tests ---");
+                let args, result;
+
+                // Scenario 1: Normal Day, <8 hours, daytime
+                currentTestInputForLogging = ['2025-01-02', '08:00', '2025-01-02', '12:00', 'normal']; // Thu
+                result = calculateWorkHours(...currentTestInputForLogging);
+                simpleAssertEqual(result, { normal: 4 }, "Test 1: Normal Day, <8h, daytime");
+
+                // Scenario 2: Normal Day, >8 hours, crossing midnight, includes night
+                currentTestInputForLogging = ['2025-01-02', '14:00', '2025-01-03', '02:00', 'normal']; // Thu to Fri
+                result = calculateWorkHours(...currentTestInputForLogging);
+                simpleAssertEqual(result, { normal: 7, night: 3, extraNight: 2 }, "Test 2: Normal Day, >8h, cross midnight, night hours");
+
+                // Scenario 3: Normal Day to Holiday
+                currentTestInputForLogging = ['2025-04-16', '20:00', '2025-04-17', '04:00', 'normal']; // Wed normal to Thu Santo (Festive)
+                result = calculateWorkHours(...currentTestInputForLogging);
+                simpleAssertEqual(result, { normal: 1, night: 3, festive: 4 }, "Test 3: Normal Day to Holiday");
+
+                // Scenario 4: Normal Day to Sunday
+                currentTestInputForLogging = ['2025-01-04', '20:00', '2025-01-05', '04:00', 'normal']; // Sat normal to Sun
+                result = calculateWorkHours(...currentTestInputForLogging);
+                simpleAssertEqual(result, { normal: 1, night: 3, sunday: 4 }, "Test 4: Normal Day to Sunday");
+
+                // Scenario 5: Sunday to Normal Day, >8 hours total shift
+                // 2025-01-12 is Sunday. 2025-01-13 is Monday (Normal).
+                currentTestInputForLogging = ['2025-01-12', '20:00', '2025-01-13', '06:00', 'sunday'];
+                result = calculateWorkHours(...currentTestInputForLogging);
+                simpleAssertEqual(result, { sunday: 4, night: 6 }, "Test 5: Sunday to Normal Day");
+
+                // Scenario 6: Holiday, >8 hours
+                currentTestInputForLogging = ['2025-01-01', '14:00', '2025-01-01', '23:00', 'festive']; // Festive, 9 hours
+                result = calculateWorkHours(...currentTestInputForLogging);
+                simpleAssertEqual(result, { festive: 8, extraFestive: 1 }, "Test 6: Holiday, >8h");
+
+                // Scenario 7: Sunday, >8 hours
+                currentTestInputForLogging = ['2025-01-05', '14:00', '2025-01-05', '23:00', 'sunday']; // Sunday, 9 hours
+                result = calculateWorkHours(...currentTestInputForLogging);
+                simpleAssertEqual(result, { sunday: 8, extraSunday: 1 }, "Test 7: Sunday, >8h");
+
+                // Scenario 8: All night shift on a normal day, <8 hours
+                currentTestInputForLogging = ['2025-01-02', '22:00', '2025-01-03', '05:00', 'normal']; // Thu night to Fri morning
+                result = calculateWorkHours(...currentTestInputForLogging);
+                simpleAssertEqual(result, { night: 7 }, "Test 8: All night, normal day, <8h");
+
+                // Scenario 9: Shift starting normal, ending holiday, holiday part > 8h
+                currentTestInputForLogging = ['2025-04-16', '22:00', '2025-04-17', '10:00', 'normal']; // Wed normal to Thu Santo (Festive)
+                result = calculateWorkHours(...currentTestInputForLogging);
+                simpleAssertEqual(result, { night: 2, festive: 8, extraFestive: 2 }, "Test 9: Normal to Holiday, holiday part >8h");
+
+                console.log("--- Finished calculateWorkHours Tests ---");
+            }
+
+            runWorkHoursTests(); // Automatically run tests when DOM is loaded and script runs.
+
         });
     </script>
 </body>
