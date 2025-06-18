@@ -631,20 +631,17 @@
             }
 
             // Helper function to calculate hours for a specific time segment within a single day
-            function calculateHoursForDaySegment(segmentStart, segmentEnd, dayType, accumulatedOrdinaryHoursToday) {
-                // segmentStart and segmentEnd are Date objects (in Colombian TZ context)
-                // dayType is 'normal', 'sunday', or 'festive'
-                // accumulatedOrdinaryHoursToday is the count of ordinary hours already worked *on that specific calendar day*
-
-                let ordinaryDay = 0, ordinaryNight = 0;
-                let extraDay = 0, extraNight = 0;
-                let sundayBase = 0, sundayExtra = 0;
-                let festiveBase = 0, festiveExtra = 0;
+            function calculateHoursForDaySegment(segmentStart, segmentEnd, dayType, baseHoursAlreadyWorkedToday) {
+                let ordinaryDayThisSegment = 0, ordinaryNightThisSegment = 0;
+                let extraDayThisSegment = 0, extraNightThisSegment = 0;
+                let sundayBaseThisSegment = 0, sundayExtraThisSegment = 0;
+                let festiveBaseThisSegment = 0, festiveExtraThisSegment = 0;
 
                 const DAY_START_HOUR = 6; // 6:00 am
                 const NIGHT_START_HOUR = 21; // 9:00 pm
-                const ORDINARY_LIMIT_HOURS = 8;
+                const DAILY_BASE_LIMIT_HOURS = 8;
 
+                let runningDailyTotalBaseHours = baseHoursAlreadyWorkedToday; // Initialize with hours from before this segment
                 let current = new Date(segmentStart);
 
                 while (current < segmentEnd) {
@@ -660,71 +657,65 @@
                     const currentHour = current.getHours(); // Hour in Colombian timezone
                     const isNightTime = currentHour >= NIGHT_START_HOUR || currentHour < DAY_START_HOUR;
 
-                    if (dayType === 'sunday') {
-                        // On Sundays, first 8 hours are "sunday base", rest are "sunday extra"
-                        // No distinction between day/night for these categories in the provided return structure.
-                        // The rate for sunday/extraSunday implicitly covers day/night.
-                        if (sundayBase < ORDINARY_LIMIT_HOURS) {
-                            const remainingBase = ORDINARY_LIMIT_HOURS - sundayBase;
-                            if (duration <= remainingBase) {
-                                sundayBase += duration;
-                            } else {
-                                sundayBase += remainingBase;
-                                sundayExtra += (duration - remainingBase);
-                            }
-                        } else {
-                            sundayExtra += duration;
-                        }
-                    } else if (dayType === 'festive') {
-                        // Similar logic for festive days
-                        if (festiveBase < ORDINARY_LIMIT_HOURS) {
-                            const remainingBase = ORDINARY_LIMIT_HOURS - festiveBase;
-                            if (duration <= remainingBase) {
-                                festiveBase += duration;
-                            } else {
-                                festiveBase += remainingBase;
-                                festiveExtra += (duration - remainingBase);
-                            }
-                        } else {
-                            festiveExtra += duration;
-                        }
-                    } else { // normal day
-                        const totalOrdinaryForThisDaySegment = ordinaryDay + ordinaryNight;
-                        // Check against (ORDINARY_LIMIT_HOURS - accumulatedOrdinaryHoursToday)
-                        // to see if ordinary limit *for the day* has been reached.
-                        if (accumulatedOrdinaryHoursToday + totalOrdinaryForThisDaySegment < ORDINARY_LIMIT_HOURS) {
-                            const remainingOrdinaryForDay = ORDINARY_LIMIT_HOURS - (accumulatedOrdinaryHoursToday + totalOrdinaryForThisDaySegment);
-                            if (duration <= remainingOrdinaryForDay) { // Segment fits entirely within remaining ordinary time for the day
-                                if (isNightTime) ordinaryNight += duration;
-                                else ordinaryDay += duration;
-                            } else { // Segment crosses from ordinary to extra
+                    if (dayType === 'normal') {
+                        if (runningDailyTotalBaseHours < DAILY_BASE_LIMIT_HOURS) {
+                            const remainingBaseCapacity = DAILY_BASE_LIMIT_HOURS - runningDailyTotalBaseHours;
+                            if (duration <= remainingBaseCapacity) { // Entire interval is base
+                                if (isNightTime) ordinaryNightThisSegment += duration; else ordinaryDayThisSegment += duration;
+                                runningDailyTotalBaseHours += duration;
+                            } else { // Interval crosses from base to extra
                                 if (isNightTime) {
-                                    ordinaryNight += remainingOrdinaryForDay;
-                                    extraNight += (duration - remainingOrdinaryForDay);
+                                    ordinaryNightThisSegment += remainingBaseCapacity;
+                                    extraNightThisSegment += (duration - remainingBaseCapacity);
                                 } else {
-                                    ordinaryDay += remainingOrdinaryForDay;
-                                    // If it crosses into night time as well, this needs more granular split.
-                                    // For simplicity, assume 15-min block stays day or night.
-                                    // This is a limitation if a 15-min block itself crosses day/night AND ord/extra.
-                                    // Given 15-min granularity, this edge case is minor.
-                                    extraDay += (duration - remainingOrdinaryForDay);
+                                    ordinaryDayThisSegment += remainingBaseCapacity;
+                                    extraDayThisSegment += (duration - remainingBaseCapacity);
                                 }
+                                runningDailyTotalBaseHours += remainingBaseCapacity; // Maxes out base hours
                             }
                         } else { // Already in extra time for the day
-                            if (isNightTime) extraNight += duration;
-                            else extraDay += duration;
+                            if (isNightTime) extraNightThisSegment += duration; else extraDayThisSegment += duration;
+                        }
+                    } else if (dayType === 'sunday') {
+                        if (runningDailyTotalBaseHours < DAILY_BASE_LIMIT_HOURS) {
+                            const remainingBaseCapacity = DAILY_BASE_LIMIT_HOURS - runningDailyTotalBaseHours;
+                            if (duration <= remainingBaseCapacity) {
+                                sundayBaseThisSegment += duration;
+                                runningDailyTotalBaseHours += duration;
+                            } else {
+                                sundayBaseThisSegment += remainingBaseCapacity;
+                                sundayExtraThisSegment += (duration - remainingBaseCapacity);
+                                runningDailyTotalBaseHours += remainingBaseCapacity;
+                            }
+                        } else {
+                            sundayExtraThisSegment += duration;
+                        }
+                    } else if (dayType === 'festive') {
+                        if (runningDailyTotalBaseHours < DAILY_BASE_LIMIT_HOURS) {
+                            const remainingBaseCapacity = DAILY_BASE_LIMIT_HOURS - runningDailyTotalBaseHours;
+                            if (duration <= remainingBaseCapacity) {
+                                festiveBaseThisSegment += duration;
+                                runningDailyTotalBaseHours += duration;
+                            } else {
+                                festiveBaseThisSegment += remainingBaseCapacity;
+                                festiveExtraThisSegment += (duration - remainingBaseCapacity);
+                                runningDailyTotalBaseHours += remainingBaseCapacity;
+                            }
+                        } else {
+                            festiveExtraThisSegment += duration;
                         }
                     }
                     current = realEnd;
                 }
 
                 return {
-                    normal: ordinaryDay, night: ordinaryNight,
-                    extraDay: extraDay, extraNight: extraNight,
-                    sunday: sundayBase, extraSunday: sundayExtra,
-                    festive: festiveBase, extraFestive: festiveExtra,
-                    // Return the ordinary hours processed in *this segment* for normal days
-                    processedOrdinaryInSegment: ordinaryDay + ordinaryNight
+                    normal: ordinaryDayThisSegment, night: ordinaryNightThisSegment,
+                    extraDay: extraDayThisSegment, extraNight: extraNightThisSegment,
+                    sunday: sundayBaseThisSegment, extraSunday: sundayExtraThisSegment,
+                    festive: festiveBaseThisSegment, extraFestive: festiveExtraThisSegment,
+                    processedOrdinaryInSegment: ordinaryDayThisSegment + ordinaryNightThisSegment,
+                    processedSundayBaseInSegment: sundayBaseThisSegment,
+                    processedFestiveBaseInSegment: festiveBaseThisSegment
                 };
             }
             
@@ -765,53 +756,47 @@
 
                 if (currentSegmentStart >= overallEnd) return results; // No duration or invalid
 
-                let accumulatedOrdinaryForDay = 0; // Tracks ordinary hours for the current calendar day (for normal days)
+                let accumulatedBaseOrOrdinaryHoursThisDay = 0;
 
                 while (currentSegmentStart < overallEnd) {
-                    // Determine the calendar date string (YYYY-MM-DD) for the current segment in Colombian time
-                    // This is tricky with Date objects. Forcing UTC interpretation then adding offset for display/logic
-                    // is one way, but direct construction with offset is better.
-                    // Since currentSegmentStart is already a Date object representing Colombian time:
                     const tempYear = currentSegmentStart.getFullYear();
                     const tempMonth = (currentSegmentStart.getMonth() + 1).toString().padStart(2, '0');
                     const tempDay = currentSegmentStart.getDate().toString().padStart(2, '0');
                     const currentSegmentDateStr = `${tempYear}-${tempMonth}-${tempDay}`;
 
-                    // Determine end of this processing segment: either overallEnd or midnight of currentSegmentStart's day
                     let endOfCurrentDay = new Date(currentSegmentStart);
-                    endOfCurrentDay.setHours(24, 0, 0, 0); // Midnight, effectively start of next day
+                    endOfCurrentDay.setHours(24, 0, 0, 0);
 
                     const segmentActualEnd = new Date(Math.min(overallEnd.getTime(), endOfCurrentDay.getTime()));
 
-                    // Determine day type for the currentSegmentDateStr
                     let actualDayType;
-                    // The Date object for isHoliday needs to represent the calendar date correctly.
-                    // currentSegmentStart is fine as it's already in the correct "local" (Colombian) time.
-                    if (currentSegmentDateStr === startDateStr) { // First day of the shift
+                    if (currentSegmentDateStr === startDateStr) {
                         actualDayType = startDayType;
-                    } else { // Subsequent day
+                    } else {
                         actualDayType = determineDayType(currentSegmentDateStr, currentSegmentStart);
                     }
                     
-                    const segmentHoursResult = calculateHoursForDaySegment(
+                    const segmentResult = calculateHoursForDaySegment(
                         currentSegmentStart,
                         segmentActualEnd,
                         actualDayType,
-                        accumulatedOrdinaryForDay
+                        accumulatedBaseOrOrdinaryHoursThisDay
                     );
-                    addHours(segmentHoursResult);
+                    addHours(segmentResult); // Aggregates detailed hours (normal, night, sundayBase, etc.)
 
-                    // Update for next iteration
+                    // Update the daily accumulator with base/ordinary hours processed in this segment
                     if (actualDayType === 'normal') {
-                        accumulatedOrdinaryForDay += segmentHoursResult.processedOrdinaryInSegment;
+                        accumulatedBaseOrOrdinaryHoursThisDay += segmentResult.processedOrdinaryInSegment;
+                    } else if (actualDayType === 'sunday') {
+                        accumulatedBaseOrOrdinaryHoursThisDay += segmentResult.processedSundayBaseInSegment;
+                    } else if (actualDayType === 'festive') {
+                        accumulatedBaseOrOrdinaryHoursThisDay += segmentResult.processedFestiveBaseInSegment;
                     }
 
-                    // If segmentActualEnd is at midnight (i.e., we are transitioning to a new day)
+                    // If this segment ended exactly at midnight, reset the daily accumulator for the new day starting
                     if (segmentActualEnd.getTime() === endOfCurrentDay.getTime()) {
-                        accumulatedOrdinaryForDay = 0; // Reset for the new calendar day
+                        accumulatedBaseOrOrdinaryHoursThisDay = 0;
                     }
-                    // If segmentActualEnd is overallEnd and it's before midnight, accumulatedOrdinaryForDay carries over
-                    // but the loop will terminate.
                     
                     currentSegmentStart = new Date(segmentActualEnd);
                 }
@@ -1308,19 +1293,22 @@
             document.head.appendChild(style);
 
             // --- Test Suite for calculateWorkHours ---
-            let currentTestInputForLogging;
-            function simpleAssertEqual(actual, expected, testName) {
+            let currentTestInputForLogging; // Holds {args: [], desc: ""} for current test
+            function simpleAssertEqual(actual, expected, testNameFallback) {
                 const defaultKeys = { normal: 0, night: 0, extraDay: 0, extraNight: 0, festive: 0, extraFestive: 0, sunday: 0, extraSunday: 0 };
                 const actualFull = { ...defaultKeys, ...actual };
                 const expectedFull = { ...defaultKeys, ...expected };
                 const actualStr = JSON.stringify(actualFull);
                 const expectedStr = JSON.stringify(expectedFull);
 
+                const testDescription = (currentTestInputForLogging && currentTestInputForLogging.desc) ? currentTestInputForLogging.desc : testNameFallback;
+                const inputArgs = (currentTestInputForLogging && currentTestInputForLogging.args) ? currentTestInputForLogging.args : "N/A";
+
                 if (actualStr === expectedStr) {
-                    console.log(`PASS: ${testName}`);
+                    console.log(`PASS: ${testDescription}`);
                 } else {
-                    console.error(`FAIL: ${testName}`);
-                    console.log("   Input:", currentTestInputForLogging);
+                    console.error(`FAIL: ${testDescription}`);
+                    console.log("   Input:", inputArgs);
                     console.log("   Actual:", actualFull);
                     console.log("   Expected:", expectedFull);
                 }
@@ -1328,53 +1316,82 @@
 
             function runWorkHoursTests() {
                 console.log("--- Running calculateWorkHours Tests ---");
-                let args, result;
+                let result; // Removed args from here, will be in currentTestInputForLogging
 
                 // Scenario 1: Normal Day, <8 hours, daytime
-                currentTestInputForLogging = ['2025-01-02', '08:00', '2025-01-02', '12:00', 'normal']; // Thu
-                result = calculateWorkHours(...currentTestInputForLogging);
-                simpleAssertEqual(result, { normal: 4 }, "Test 1: Normal Day, <8h, daytime");
+                currentTestInputForLogging = { args: ['2025-01-02', '08:00', '2025-01-02', '12:00', 'normal'], desc: "Test 1: Normal Day, <8h, daytime" };
+                result = calculateWorkHours(...currentTestInputForLogging.args);
+                simpleAssertEqual(result, { normal: 4 }, currentTestInputForLogging.desc);
 
                 // Scenario 2: Normal Day, >8 hours, crossing midnight, includes night
-                currentTestInputForLogging = ['2025-01-02', '14:00', '2025-01-03', '02:00', 'normal']; // Thu to Fri
-                result = calculateWorkHours(...currentTestInputForLogging);
-                simpleAssertEqual(result, { normal: 7, night: 3, extraNight: 2 }, "Test 2: Normal Day, >8h, cross midnight, night hours");
+                currentTestInputForLogging = { args: ['2025-01-02', '14:00', '2025-01-03', '02:00', 'normal'], desc: "Test 2: Normal Day, >8h, cross midnight, night hours" };
+                result = calculateWorkHours(...currentTestInputForLogging.args);
+                simpleAssertEqual(result, { normal: 7, night: 3, extraNight: 2 }, currentTestInputForLogging.desc);
 
                 // Scenario 3: Normal Day to Holiday
-                currentTestInputForLogging = ['2025-04-16', '20:00', '2025-04-17', '04:00', 'normal']; // Wed normal to Thu Santo (Festive)
-                result = calculateWorkHours(...currentTestInputForLogging);
-                simpleAssertEqual(result, { normal: 1, night: 3, festive: 4 }, "Test 3: Normal Day to Holiday");
+                currentTestInputForLogging = { args: ['2025-04-16', '20:00', '2025-04-17', '04:00', 'normal'], desc: "Test 3: Normal Day to Holiday" }; // Wed normal to Thu Santo (Festive)
+                result = calculateWorkHours(...currentTestInputForLogging.args);
+                simpleAssertEqual(result, { normal: 1, night: 3, festive: 4 }, currentTestInputForLogging.desc);
 
                 // Scenario 4: Normal Day to Sunday
-                currentTestInputForLogging = ['2025-01-04', '20:00', '2025-01-05', '04:00', 'normal']; // Sat normal to Sun
-                result = calculateWorkHours(...currentTestInputForLogging);
-                simpleAssertEqual(result, { normal: 1, night: 3, sunday: 4 }, "Test 4: Normal Day to Sunday");
+                currentTestInputForLogging = { args: ['2025-01-04', '20:00', '2025-01-05', '04:00', 'normal'], desc: "Test 4: Normal Day to Sunday" }; // Sat normal to Sun
+                result = calculateWorkHours(...currentTestInputForLogging.args);
+                simpleAssertEqual(result, { normal: 1, night: 3, sunday: 4 }, currentTestInputForLogging.desc);
 
                 // Scenario 5: Sunday to Normal Day, >8 hours total shift
-                // 2025-01-12 is Sunday. 2025-01-13 is Monday (Normal).
-                currentTestInputForLogging = ['2025-01-12', '20:00', '2025-01-13', '06:00', 'sunday'];
-                result = calculateWorkHours(...currentTestInputForLogging);
-                simpleAssertEqual(result, { sunday: 4, night: 6 }, "Test 5: Sunday to Normal Day");
+                currentTestInputForLogging = { args: ['2025-01-12', '20:00', '2025-01-13', '06:00', 'sunday'], desc: "Test 5: Sunday to Normal Day" }; // Sun to Mon (Normal)
+                result = calculateWorkHours(...currentTestInputForLogging.args);
+                simpleAssertEqual(result, { sunday: 4, night: 6 }, currentTestInputForLogging.desc);
 
                 // Scenario 6: Holiday, >8 hours
-                currentTestInputForLogging = ['2025-01-01', '14:00', '2025-01-01', '23:00', 'festive']; // Festive, 9 hours
-                result = calculateWorkHours(...currentTestInputForLogging);
-                simpleAssertEqual(result, { festive: 8, extraFestive: 1 }, "Test 6: Holiday, >8h");
+                currentTestInputForLogging = { args: ['2025-01-01', '14:00', '2025-01-01', '23:00', 'festive'], desc: "Test 6: Holiday, >8h (9h total)" }; // Festive
+                result = calculateWorkHours(...currentTestInputForLogging.args);
+                simpleAssertEqual(result, { festive: 8, extraFestive: 1 }, currentTestInputForLogging.desc);
 
                 // Scenario 7: Sunday, >8 hours
-                currentTestInputForLogging = ['2025-01-05', '14:00', '2025-01-05', '23:00', 'sunday']; // Sunday, 9 hours
-                result = calculateWorkHours(...currentTestInputForLogging);
-                simpleAssertEqual(result, { sunday: 8, extraSunday: 1 }, "Test 7: Sunday, >8h");
+                currentTestInputForLogging = { args: ['2025-01-05', '14:00', '2025-01-05', '23:00', 'sunday'], desc: "Test 7: Sunday, >8h (9h total)" }; // Sunday
+                result = calculateWorkHours(...currentTestInputForLogging.args);
+                simpleAssertEqual(result, { sunday: 8, extraSunday: 1 }, currentTestInputForLogging.desc);
 
                 // Scenario 8: All night shift on a normal day, <8 hours
-                currentTestInputForLogging = ['2025-01-02', '22:00', '2025-01-03', '05:00', 'normal']; // Thu night to Fri morning
-                result = calculateWorkHours(...currentTestInputForLogging);
-                simpleAssertEqual(result, { night: 7 }, "Test 8: All night, normal day, <8h");
+                currentTestInputForLogging = { args: ['2025-01-02', '22:00', '2025-01-03', '05:00', 'normal'], desc: "Test 8: All night, normal day, <8h (7h total)" }; // Thu night to Fri morning
+                result = calculateWorkHours(...currentTestInputForLogging.args);
+                simpleAssertEqual(result, { night: 7 }, currentTestInputForLogging.desc);
 
                 // Scenario 9: Shift starting normal, ending holiday, holiday part > 8h
-                currentTestInputForLogging = ['2025-04-16', '22:00', '2025-04-17', '10:00', 'normal']; // Wed normal to Thu Santo (Festive)
-                result = calculateWorkHours(...currentTestInputForLogging);
-                simpleAssertEqual(result, { night: 2, festive: 8, extraFestive: 2 }, "Test 9: Normal to Holiday, holiday part >8h");
+                currentTestInputForLogging = { args: ['2025-04-16', '22:00', '2025-04-17', '10:00', 'normal'], desc: "Test 9: Normal to Holiday, holiday part >8h" }; // Wed normal to Thu Santo (Festive)
+                result = calculateWorkHours(...currentTestInputForLogging.args);
+                simpleAssertEqual(result, { night: 2, festive: 8, extraFestive: 2 }, currentTestInputForLogging.desc);
+
+                // --- New Test Cases ---
+
+                // Test A: Sábado (Normal) 17:00 a Domingo 07:00 (14h total)
+                // Sat: 17-21 (4 normal), 21-24 (3 night). Total 7 ord.
+                // Sun: 00-07 (7 sunday base).
+                currentTestInputForLogging = { args: ['2025-05-31', '17:00', '2025-06-01', '07:00', 'normal'], desc: "Test A: Sat(Norm) 17h to Sun 7h" };
+                result = calculateWorkHours(...currentTestInputForLogging.args);
+                simpleAssertEqual(result, { normal: 4, night: 3, sunday: 7 }, currentTestInputForLogging.desc);
+
+                // Test B: Domingo 17:00 a Lunes (Normal) 07:00 (14h total)
+                // Sun: 17-24 (7 sunday base).
+                // Mon: 00-06 (6 night ord), 06-07 (1 normal ord). Total 7 ord.
+                currentTestInputForLogging = { args: ['2025-06-08', '17:00', '2025-06-09', '07:00', 'sunday'], desc: "Test B: Sun 17h to Mon(Norm) 7h" };
+                result = calculateWorkHours(...currentTestInputForLogging.args);
+                simpleAssertEqual(result, { sunday: 7, normal: 1, night: 6 }, currentTestInputForLogging.desc);
+
+                // Test C: Domingo 17:00 a Lunes (Festivo) 07:00 (14h total)
+                // Sun: 17-24 (7 sunday base). (2025-06-01)
+                // Mon: 00-07 (7 festive base). (2025-06-02 - Ascensión de Jesús)
+                currentTestInputForLogging = { args: ['2025-06-01', '17:00', '2025-06-02', '07:00', 'sunday'], desc: "Test C: Sun 17h to Mon(Holiday) 7h" };
+                result = calculateWorkHours(...currentTestInputForLogging.args);
+                simpleAssertEqual(result, { sunday: 7, festive: 7 }, currentTestInputForLogging.desc);
+
+                // Test D: Día Normal >8 horas, mismo día (10h total)
+                // 08-16 (8 normal ord).
+                // 16-18 (2 normal extra day).
+                currentTestInputForLogging = { args: ['2025-01-02', '08:00', '2025-01-02', '18:00', 'normal'], desc: "Test D: Normal day >8h, same day (10h)" };
+                result = calculateWorkHours(...currentTestInputForLogging.args);
+                simpleAssertEqual(result, { normal: 8, extraDay: 2 }, currentTestInputForLogging.desc);
 
                 console.log("--- Finished calculateWorkHours Tests ---");
             }
