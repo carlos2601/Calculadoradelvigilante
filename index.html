@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquidador Pro - Vigilantes</title>
+    <meta name="theme-color" content="#0f0f23">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root{--primary:#6366f1;--primary-dark:#4f46e5;--secondary:#8b5cf6;--accent:#06b6d4;--dark:#0f0f23;--darker:#050510;--light:#fff;--gray:#94a3b8;--success:#10b981;--error:#ef4444;--warning:#f59e0b;--input-bg:rgba(255,255,255,.08);--input-border:rgba(255,255,255,.2);}
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--darker);color:var(--light);min-height:100vh;font-size:14px;}
+        .login-container{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,var(--darker) 0%,#1a1a3a 100%);}
+        .login-box{background:rgba(15,15,35,.95);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:40px;width:90%;max-width:400px;}
+        .app-container{display:none;}
+        .header{background:linear-gradient(135deg,var(--darker) 0%,#1a1a3a 100%);padding:20px;box-shadow:0 4px 20px rgba(0,0,0,.3);position:sticky;top:0;z-index:100;}
+        .header-content{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;}
+        .logo{display:flex;align-items:center;gap:15px;}
+        .logo i{font-size:2rem;color:var(--primary);}
+        .logo h1{font-size:1.5rem;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+        .main-content{max-width:1200px;margin:0 auto;padding:30px 20px;}
+        .card{background:var(--input-bg);backdrop-filter:blur(10px);border:1px solid var(--input-border);border-radius:16px;padding:30px;margin-bottom:30px;transition:all .3s ease;}
+        .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;margin-bottom:20px;}
+        .input-group{display:flex;flex-direction:column;gap:8px;}
+        .input-group label{color:var(--light);font-weight:500;font-size:14px;text-shadow:0 1px 2px rgba(0,0,0,.5);}
+        input{width:100%;padding:14px 18px;background:var(--input-bg);border:2px solid var(--input-border);border-radius:12px;color:var(--light);font-size:16px;font-weight:500;transition:all .3s ease;}
+        input:focus{outline:none;border-color:var(--primary);background:rgba(255,255,255,.12);}
+        input::placeholder{color:var(--gray);}
+        .btn-primary{background:linear-gradient(135deg,var(--primary),var(--secondary));border:none;border-radius:12px;color:#fff;padding:14px 28px;font-size:16px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:10px;box-shadow:0 4px 15px rgba(99,102,241,.3);}
+        .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(99,102,241,.4);}
+        .resultados{display:none;background:var(--input-bg);border:1px solid var(--input-border);border-radius:16px;padding:25px;margin-top:30px;backdrop-filter:blur(10px);}
+        .result-table{width:100%;border-collapse:collapse;margin-top:15px;font-size:13px;}
+        .result-table th,.result-table td{padding:10px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.1);}
+        .result-table th{background:rgba(255,255,255,.05);color:var(--primary);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px;}
+        .result-table td{color:var(--light);font-size:13px;font-weight:500;}
+        .total-row{background:rgba(255,255,255,.08);border-top:2px solid rgba(255,255,255,.2);font-weight:700;}
+        .section-total{background:rgba(16,185,129,.1);border-top:2px solid var(--success);}
+        .deduccion-row td{color:var(--error);}
+        
+        /* BOTONES HORIZONTALES - SIEMPRE EN UNA LÍNEA */
+        .button-group-horizontal {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 25px;
+            width: 100%;
+        }
+        
+        .btn-action {
+            flex: 1;
+            padding: 10px 5px;
+            font-size: 11px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,.2);
+            white-space: nowrap;
+        }
+        
+        .btn-action:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0,0,0,.3);
+        }
+        
+        .btn-save {
+            background: linear-gradient(135deg, var(--success), #059669);
+            color: #fff;
+        }
+        
+        .btn-pdf {
+            background: linear-gradient(135deg, var(--error), #dc2626);
+            color: #fff;
+        }
+        
+        .btn-new {
+            background: linear-gradient(135deg, var(--accent), #0891b2);
+            color: #fff;
+        }
+        
+        /* BOTONES PARA JORNADA - EN UNA SOLA LÍNEA */
+        .jornada-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .jornada-buttons .btn-primary {
+            flex: 1;
+        }
+        
+        .loading{display:none;text-align:center;padding:40px;}
+        .spinner{width:50px;height:50px;border:3px solid rgba(255,255,255,.1);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px;}
+        @keyframes spin{to{transform:rotate(360deg);}}
+        .jornada-item{background:var(--input-bg);border:1px solid var(--input-border);border-radius:12px;padding:20px;margin-bottom:15px;transition:all .3s ease;}
+        .fade-in{animation:fadeIn .5s ease;}
+        
+        /* Estilos para switches */
+        .switch-container{display:flex;align-items:center;justify-content:space-between;margin-top:15px;padding:12px 15px;background:rgba(255,255,255,.05);border-radius:10px;}
+        .switch-label{display:flex;align-items:center;gap:10px;font-weight:500;}
+        .switch{position:relative;display:inline-block;width:50px;height:26px;}
+        .switch input{opacity:0;width:0;height:0;}
+        .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:var(--gray);transition:.4s;border-radius:34px;}
+        .slider:before{position:absolute;content:"";height:18px;width:18px;left:4px;bottom:4px;background-color:var(--light);transition:.4s;border-radius:50%;}
+        input:checked + .slider{background-color:var(--success);}
+        input:checked + .slider:before{transform:translateX(24px);}
+        .switch-off{color:var(--gray);}
+        .switch-on{color:var(--success);}
+        
+        /* LÍNEA SEPARADORA */
+        .separator-line {
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin: 15px 0;
+        }
+        
+        /* BOTÓN GUARDAR JSON EN JORNADAS */
+        .save-jornadas-btn {
+            margin-top: 15px;
+            width: 100%;
+        }
+        
+        /* RESPONSIVE */
+        @media(max-width:768px){
+            .btn-action {
+                font-size: 10px;
+                padding: 8px 3px;
+                gap: 2px;
+            }
+            .jornada-buttons {
+                flex-direction: column;
+            }
+        }
+        .festivo-rojo{color:var(--error)!important;font-weight:700!important;}
+    </style>
+</head>
+<body>
+    <!-- LOGIN -->
+    <div class="login-container" id="loginScreen">
+        <div class="login-box">
+            <div style="text-align:center;margin-bottom:30px;">
+                <i class="fas fa-shield-alt" style="font-size:3rem;color:var(--primary);margin-bottom:15px;"></i>
+                <h1 style="font-size:1.8rem;margin-bottom:10px;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Liquidador Pro</h1>
+                <p style="color:var(--gray);">Sistema especializado para vigilantes</p>
+            </div>
+            <form id="loginForm" style="display:flex;flex-direction:column;gap:20px;">
+                <div class="input-group"><label for="username">Usuario</label><input type="text" id="username" placeholder="Ingrese usuario" required></div>
+                <div class="input-group"><label for="password">Contraseña</label><input type="password" id="password" placeholder="Ingrese contraseña" required></div>
+                <button type="submit" class="btn-primary"><i class="fas fa-sign-in-alt"></i> Iniciar Sesión</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- APP -->
+    <div class="app-container" id="mainApp">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo"><i class="fas fa-shield-alt"></i><h1>Liquidador Pro</h1></div>
+                <button class="btn-primary" onclick="logout()" style="padding:8px 16px;font-size:14px;"><i class="fas fa-sign-out-alt"></i> Salir</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="card fade-in">
+                <h3><i class="fas fa-cog"></i> Configuración Base</h3>
+                <div class="grid">
+                    <div class="input-group"><label for="salarioBase">Salario Base Mensual</label><input type="number" id="salarioBase" placeholder="Ingrese salario base"></div>
+                    <div class="input-group"><label for="rodamiento">Valor Rodamiento por Día</label><input type="number" id="rodamiento" placeholder="Ingrese valor rodamiento"></div>
+                    <div class="input-group"><label for="diasCompensatorios">Días Compensatorios</label><input type="number" id="diasCompensatorios" value="0" min="0" max="31" placeholder="Días compensados (0 si no hay)"></div>
+                </div>
+                
+                <!-- Switches para activar/desactivar -->
+                <div class="switch-container">
+                    <div class="switch-label">
+                        <i class="fas fa-car"></i>
+                        <span id="rodamientoLabel">Rodamiento: <span class="switch-off">APAGADO</span></span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="rodamientoSwitch" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div class="switch-container">
+                    <div class="switch-label">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span id="parafiscalesLabel">Parafiscales: <span class="switch-on">ENCENDIDO</span></span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="parafiscalesSwitch" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="card fade-in">
+                <h3><i class="fas fa-clock"></i> Registrar Jornada</h3>
+                <div class="grid">
+                    <div class="input-group"><label for="ingreso">Fecha y hora de ingreso</label><input type="datetime-local" id="ingreso"></div>
+                    <div class="input-group"><label for="salida">Fecha y hora de salida</label><input type="datetime-local" id="salida"></div>
+                </div>
+                <!-- DOS BOTONES HORIZONTALES PARA JORNADAS - EN UNA SOLA LÍNEA -->
+                <div class="jornada-buttons">
+                    <button class="btn-primary" onclick="agregarJornada()"><i class="fas fa-plus"></i> Registrar</button>
+                    <button class="btn-primary" onclick="cargarJornadasArchivo()" style="background:linear-gradient(135deg, var(--accent), #0891b2);"><i class="fas fa-file-import"></i> Cargar JSON</button>
+                </div>
+            </div>
+
+            <div id="jornadasList"></div>
+
+            <div class="card fade-in" style="text-align:center;">
+                <button class="btn-primary" onclick="calcularLiquidacion()" style="font-size:18px;padding:15px 40px;"><i class="fas fa-calculator"></i> CALCULAR LIQUIDACIÓN</button>
+            </div>
+
+            <div class="loading" id="loading"><div class="spinner"></div><p>Analizando jornadas...</p></div>
+
+            <div id="resultados" class="resultados">
+                <h3><i class="fas fa-chart-line"></i> Resultados de Liquidación</h3>
+                <div id="resultadosContent"></div>
+                <!-- 3 BOTONES EN LÍNEA HORIZONTAL -->
+                <div class="button-group-horizontal">
+                    <button class="btn-action btn-save" onclick="guardarLiquidacion()"><i class="fas fa-save"></i> Guardar</button>
+                    <button class="btn-action btn-pdf" onclick="generarPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
+                    <button class="btn-action btn-new" onclick="nuevaLiquidacion()"><i class="fas fa-plus"></i> Nueva</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        /* ----------  VARIABLES GLOBALES ---------- */
+        let jornadas=[],festivosColombia=[];
+        let rodamientoActivo=true, parafiscalesActivos=true;
+        
+        /* ----------  LOGIN ---------- */
+        document.getElementById('loginForm').addEventListener('submit',function(e){
+            e.preventDefault();
+            if(document.getElementById('username').value==='123' && document.getElementById('password').value==='123'){
+                document.getElementById('loginScreen').style.display='none';
+                document.getElementById('mainApp').style.display='block';
+                setHorariosPredeterminados();
+                cargarFestivos();
+                configurarSwitches();
+            }else{alert('❌ Credenciales incorrectas');}
+        });
+        
+        function logout(){
+            document.getElementById('loginScreen').style.display='flex';
+            document.getElementById('mainApp').style.display='none';
+            document.getElementById('loginForm').reset();
+        }
+        
+        /* ----------  CONFIGURAR SWITCHES ---------- */
+        function configurarSwitches() {
+            const rodamientoSwitch = document.getElementById('rodamientoSwitch');
+            const parafiscalesSwitch = document.getElementById('parafiscalesSwitch');
+            const rodamientoLabel = document.getElementById('rodamientoLabel');
+            const parafiscalesLabel = document.getElementById('parafiscalesLabel');
+            
+            rodamientoSwitch.addEventListener('change', function() {
+                rodamientoActivo = this.checked;
+                const statusSpan = rodamientoLabel.querySelector('span');
+                if (this.checked) {
+                    statusSpan.textContent = 'ENCENDIDO';
+                    statusSpan.className = 'switch-on';
+                    document.getElementById('rodamiento').disabled = false;
+                } else {
+                    statusSpan.textContent = 'APAGADO';
+                    statusSpan.className = 'switch-off';
+                    document.getElementById('rodamiento').disabled = true;
+                }
+            });
+            
+            parafiscalesSwitch.addEventListener('change', function() {
+                parafiscalesActivos = this.checked;
+                const statusSpan = parafiscalesLabel.querySelector('span');
+                if (this.checked) {
+                    statusSpan.textContent = 'ENCENDIDO';
+                    statusSpan.className = 'switch-on';
+                } else {
+                    statusSpan.textContent = 'APAGADO';
+                    statusSpan.className = 'switch-off';
+                }
+            });
+            
+            // Inicializar estados
+            rodamientoSwitch.dispatchEvent(new Event('change'));
+            parafiscalesSwitch.dispatchEvent(new Event('change'));
+        }
+        
+        /* ----------  FUNCIÓN PARA ESTABLECER HORARIOS PREDETERMINADOS ---------- */
+        function setHorariosPredeterminados() {
+            const hoy = new Date();
+            const mañana = new Date(hoy);
+            mañana.setDate(mañana.getDate() + 1);
+            
+            // Establecer ingreso a las 17:00 (5:00 PM)
+            hoy.setHours(17, 0, 0, 0);
+            // Establecer salida a las 7:00 (7:00 AM) del día siguiente
+            mañana.setHours(7, 0, 0, 0);
+            
+            // Formatear para datetime-local (YYYY-MM-DDTHH:MM)
+            const formatDateTime = (date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            };
+            
+            document.getElementById('ingreso').value = formatDateTime(hoy);
+            document.getElementById('salida').value = formatDateTime(mañana);
+        }
+
+        /* ----------  FESTIVOS ---------- */
+        async function cargarFestivos(){
+            try{
+                const year=new Date().getFullYear();
+                const res=await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/CO`);
+                const data=await res.json();
+                festivosColombia=data.map(f=>f.date);
+            }catch{
+                const year=new Date().getFullYear();
+                festivosColombia=[`${year}-01-01`,`${year}-01-08`,`${year}-03-25`,`${year}-05-01`,`${year}-06-10`,`${year}-07-01`,`${year}-08-07`,`${year}-08-19`,`${year}-10-14`,`${year}-11-04`,`${year}-11-11`,`${year}-12-08`,`${year}-12-25`];
+            }
+        }
+        function esFestivo(fecha){return festivosColombia.includes(fecha.toISOString().split('T')[0]);}
+        function esDomingo(fecha){return fecha.getDay()===0;}
+        function esNocturno(hora){return hora>=21||hora<6;}
+
+        /* ----------  AGREGAR JORNADA ---------- */
+        function agregarJornada(){
+            const ingreso=document.getElementById('ingreso').value;
+            const salida=document.getElementById('salida').value;
+            if(!ingreso||!salida){alert('⚠️ Complete fecha y hora');return;}
+            const inicio=new Date(ingreso);
+            const fin=new Date(salida);
+            if(fin<=inicio){alert('⚠️ La salida debe ser mayor');return;}
+            jornadas.push({id:Date.now(),inicio:inicio,fin:fin,duracion:(fin-inicio)/(1000*60*60)});
+            mostrarJornadas();
+            // Restablecer a horarios predeterminados
+            setHorariosPredeterminados();
+        }
+        
+        /* ----------  GUARDAR JORNADAS A ARCHIVO JSON ---------- */
+        function guardarJornadasArchivo() {
+            if(jornadas.length === 0){
+                alert('⚠️ No hay jornadas para guardar');
+                return;
+            }
+            
+            const jornadasParaGuardar = jornadas.map(j => ({
+                inicio: j.inicio.toISOString(),
+                fin: j.fin.toISOString(),
+                duracion: j.duracion
+            }));
+            
+            const dataStr = JSON.stringify(jornadasParaGuardar, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `jornadas_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            alert(`✅ ${jornadas.length} jornadas guardadas en archivo JSON`);
+        }
+        
+        /* ----------  CARGAR JORNADAS DESDE ARCHIVO JSON ---------- */
+        function cargarJornadasArchivo() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = function(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const datos = JSON.parse(e.target.result);
+                        if (!Array.isArray(datos)) {
+                            throw new Error('Formato de archivo inválido');
+                        }
+                        
+                        // Limpiar jornadas existentes
+                        jornadas = [];
+                        
+                        // Agregar nuevas jornadas
+                        datos.forEach(item => {
+                            const inicio = new Date(item.inicio);
+                            const fin = new Date(item.fin);
+                            if (fin > inicio) {
+                                jornadas.push({
+                                    id: Date.now() + Math.random(),
+                                    inicio: inicio,
+                                    fin: fin,
+                                    duracion: item.duracion || (fin - inicio) / (1000 * 60 * 60)
+                                });
+                            }
+                        });
+                        
+                        mostrarJornadas();
+                        alert(`✅ ${jornadas.length} jornadas cargadas correctamente`);
+                    } catch (error) {
+                        alert('❌ Error al cargar el archivo: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+        
+        function eliminarJornada(id){jornadas=jornadas.filter(j=>j.id!==id);mostrarJornadas();}
+        
+        function mostrarJornadas(){
+            const container=document.getElementById('jornadasList');
+            if(jornadas.length===0){
+                container.innerHTML=`
+                <div class="card fade-in">
+                    <h3><i class="fas fa-list"></i> Jornadas Registradas (0)</h3>
+                    <p style="color:var(--gray);text-align:center;padding:20px;">
+                        <i class="fas fa-clock" style="font-size:2rem;margin-bottom:10px;display:block;"></i>
+                        No hay jornadas registradas
+                    </p>
+                </div>`;
+                return;
+            }
+            container.innerHTML=`
+            <div class="card fade-in">
+                <h3><i class="fas fa-list"></i> Jornadas Registradas (${jornadas.length})</h3>
+                ${jornadas.map(j=>{
+                    const inicioStr=j.inicio.toLocaleDateString();
+                    const finStr=j.fin.toLocaleDateString();
+                    const inicioFest=esFestivo(j.inicio)||esDomingo(j.inicio);
+                    const finFest=esFestivo(j.fin)||esDomingo(j.fin);
+                    const inicioClass=inicioFest?'festivo-rojo':'';
+                    const finClass=finFest?'festivo-rojo':'';
+                    return`
+                <div class="jornada-item">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <span class="${inicioClass}"><strong>${inicioStr}</strong> ${j.inicio.toLocaleTimeString()}</span> - 
+                            <span class="${finClass}"><strong>${finStr}</strong> ${j.fin.toLocaleTimeString()}</span>
+                        </div>
+                        <button onclick="eliminarJornada(${j.id})" style="background:var(--error);color:#fff;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;"><i class="fas fa-trash"></i></button>
+                    </div>
+                    <div style="color:var(--gray);margin-top:5px;">Duración: <strong>${j.duracion.toFixed(2)} horas</strong></div>
+                </div>`;}).join('')}
+                
+                <!-- BOTÓN GUARDAR JSON AL FINAL -->
+                <div class="save-jornadas-btn">
+                    <button class="btn-primary" onclick="guardarJornadasArchivo()" style="width:100%;padding:12px;font-size:14px;background:linear-gradient(135deg, var(--accent), #0891b2);">
+                        <i class="fas fa-download"></i> Guardar Jornadas (JSON)
+                    </button>
+                </div>
+            </div>`;
+        }
+
+        /* ----------  CÁLCULO CON LÓGICA CORRECTA ---------- */
+        function calcularLiquidacion(){
+            if(jornadas.length===0){alert('⚠️ No hay jornadas');return;}
+            
+            const salarioBase=parseFloat(document.getElementById('salarioBase').value)||0;
+            const valorRodamiento=parseFloat(document.getElementById('rodamiento').value)||0;
+            const diasCompensatorios=parseInt(document.getElementById('diasCompensatorios').value)||0;
+            
+            if(salarioBase === 0){alert('⚠️ Ingrese el salario base');return;}
+            if(rodamientoActivo && valorRodamiento === 0){alert('⚠️ Ingrese el valor del rodamiento');return;}
+            
+            document.getElementById('loading').style.display='block';
+            document.getElementById('resultados').style.display='none';
+            
+            setTimeout(()=>{
+                // SALARIO SIEMPRE SE CALCULA SOBRE 30 DÍAS (SE QUITÓ DÍAS REMUNERADOS)
+                const salarioProporcional = Math.round(salarioBase); // 30 días siempre
+                const valorHora = salarioProporcional / 240;
+                const valorDiaCompensatorio = Math.round(salarioBase / 30);
+                
+                // Calcular auxilio de transporte SOLO si parafiscales están activos
+                const diasTrabajados = new Set(jornadas.map(j=>j.inicio.toDateString())).size;
+                const auxilioTransporte = parafiscalesActivos ? Math.round((140606/30) * diasTrabajados) : 0;
+
+                // Inicializar contadores
+                const res = {
+                    horasOrdinariasDiurnas: 0,      // 0%
+                    horasOrdinariasNocturnas: 0,    // 35%
+                    horasExtrasDiurnas: 0,          // 25%
+                    horasExtrasNocturnas: 0,        // 75%
+                    horasFestivasDiurnas: 0,        // 100%
+                    horasFestivasNocturnas: 0,      // 150%
+                    horasExtrasFestivasDiurnas: 0,  // 125% (100% + 25%)
+                    horasExtrasFestivasNocturnas: 0,// 225% (150% + 75%)
+                    rodamiento: 0
+                };
+
+                // Procesar cada jornada
+                jornadas.forEach(j => {
+                    if(rodamientoActivo){
+                        res.rodamiento += valorRodamiento;
+                    }
+                    
+                    const inicio = new Date(j.inicio), fin = new Date(j.fin);
+                    let horasTrabajadasEnJornada = 0;
+                    let actual = new Date(inicio);
+                    
+                    while(actual < fin){
+                        const siguiente = new Date(actual);
+                        siguiente.setHours(siguiente.getHours() + 1);
+                        if(siguiente > fin) siguiente = new Date(fin);
+                        
+                        const segmento = (siguiente - actual) / (1000 * 60 * 60);
+                        const horaActual = actual.getHours();
+                        const fest = esFestivo(actual) || esDomingo(actual);
+                        const noct = esNocturno(horaActual);
+                        
+                        // Determinar si es hora ordinaria o extra
+                        const esExtra = horasTrabajadasEnJornada >= 8;
+                        
+                        if(fest){
+                            if(esExtra){
+                                if(noct) res.horasExtrasFestivasNocturnas += segmento;
+                                else res.horasExtrasFestivasDiurnas += segmento;
+                            }else{
+                                if(noct) res.horasFestivasNocturnas += segmento;
+                                else res.horasFestivasDiurnas += segmento;
+                                horasTrabajadasEnJornada += segmento;
+                            }
+                        }else{
+                            if(esExtra){
+                                if(noct) res.horasExtrasNocturnas += segmento;
+                                else res.horasExtrasDiurnas += segmento;
+                            }else{
+                                if(noct) res.horasOrdinariasNocturnas += segmento;
+                                else res.horasOrdinariasDiurnas += segmento;
+                                horasTrabajadasEnJornada += segmento;
+                            }
+                        }
+                        
+                        actual = new Date(siguiente);
+                    }
+                });
+
+                // Calcular valores monetarios
+                const vals = {
+                    ordinariasDiurnas: Math.round(res.horasOrdinariasDiurnas * valorHora),
+                    ordinariasNocturnas: Math.round(res.horasOrdinariasNocturnas * valorHora * 1.35),
+                    extrasDiurnas: Math.round(res.horasExtrasDiurnas * valorHora * 1.25),
+                    extrasNocturnas: Math.round(res.horasExtrasNocturnas * valorHora * 1.75),
+                    festivaDiurna: Math.round(res.horasFestivasDiurnas * valorHora * 2.00),
+                    festivaNocturna: Math.round(res.horasFestivasNocturnas * valorHora * 2.50),
+                    extraFestivaDiurna: Math.round(res.horasExtrasFestivasDiurnas * valorHora * 2.25),
+                    extraFestivaNocturna: Math.round(res.horasExtrasFestivasNocturnas * valorHora * 3.25),
+                    rodamiento: Math.round(res.rodamiento),
+                    diasCompensatorios: Math.round(diasCompensatorios * valorDiaCompensatorio)
+                };
+
+                const subtotal = vals.ordinariasDiurnas + vals.ordinariasNocturnas + vals.extrasDiurnas +
+                               vals.extrasNocturnas + vals.festivaDiurna + vals.festivaNocturna +
+                               vals.extraFestivaDiurna + vals.extraFestivaNocturna;
+                
+                // Calcular prestaciones solo si están activas
+                let prima = 0, cesantias = 0, interesesCesantias = 0, vacaciones = 0, prestaciones = 0;
+                
+                if(parafiscalesActivos){
+                    prima = Math.round(subtotal * 0.0833);
+                    cesantias = Math.round(subtotal * 0.0833);
+                    interesesCesantias = Math.round(cesantias * 0.12);
+                    vacaciones = Math.round(subtotal * 0.0417);
+                    prestaciones = prima + cesantias + interesesCesantias + vacaciones;
+                }
+                
+                // Calcular total ganado
+                let totalGanado = subtotal;
+                if(rodamientoActivo) totalGanado += vals.rodamiento;
+                if(parafiscalesActivos) totalGanado += auxilioTransporte;
+                totalGanado += prestaciones;
+                totalGanado += vals.diasCompensatorios;
+                
+                // Calcular deducciones
+                let salud = 0, pension = 0, deducciones = 0;
+                if(parafiscalesActivos){
+                    salud = Math.round(totalGanado * 0.04);
+                    pension = Math.round(totalGanado * 0.04);
+                    deducciones = salud + pension;
+                }
+                
+                const total = totalGanado - deducciones;
+
+                mostrarResultadosTabla({
+                    horas: res,
+                    valores: vals,
+                    subtotal,
+                    auxilioTransporte,
+                    diasTrabajados,
+                    diasCompensatorios,
+                    salarioBase,
+                    salarioProporcional,
+                    valorHora,
+                    parafiscalesActivos,
+                    rodamientoActivo,
+                    prestaciones: {prima, cesantias, interesesCesantias, vacaciones, total: prestaciones},
+                    deducciones: {salud, pension, total: deducciones},
+                    total
+                });
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('resultados').style.display = 'block';
+                document.getElementById('resultados').scrollIntoView({behavior: 'smooth'});
+            }, 1500);
+        }
+
+        /* ----------  MOSTRAR TABLA DE RESULTADOS ---------- */
+        function mostrarResultadosTabla(data){
+            let rodamientoHTML = '';
+            if(data.rodamientoActivo){
+                rodamientoHTML = `
+                <div style="margin-bottom:20px;">
+                    <h4 style="color:var(--warning);margin-bottom:15px;font-size:14px;">Rodamiento</h4>
+                    <table class="result-table"><tbody>
+                    <tr><td>Valor Rodamiento (${data.diasTrabajados} días)</td><td>${data.diasTrabajados} días</td><td>$${data.valores.rodamiento.toLocaleString()}</td></tr>
+                    </tbody></table>
+                </div>`;
+            }
+            
+            let parafiscalesHTML = '';
+            if(data.parafiscalesActivos){
+                parafiscalesHTML = `
+                <div style="margin-bottom:20px;">
+                    <h4 style="color:var(--success);margin-bottom:15px;font-size:14px;">Parafiscales</h4>
+                    <table class="result-table"><tbody>
+                    <tr><td>Subsidio de Transporte (${data.diasTrabajados} días)</td><td>${data.diasTrabajados} días</td><td>$${data.auxilioTransporte.toLocaleString()}</td></tr>
+                    <tr><td>Prima de Servicios (8.33%)</td><td>-</td><td>$${data.prestaciones.prima.toLocaleString()}</td></tr>
+                    <tr><td>Cesantías (8.33%)</td><td>-</td><td>$${data.prestaciones.cesantias.toLocaleString()}</td></tr>
+                    <tr><td>Intereses Cesantías (12%)</td><td>-</td><td>$${data.prestaciones.interesesCesantias.toLocaleString()}</td></tr>
+                    <tr><td>Vacaciones (4.17%)</td><td>-</td><td>$${data.prestaciones.vacaciones.toLocaleString()}</td></tr>
+                    <tr class="section-total"><td><strong>TOTAL PARAFISCALES</strong></td><td>-</td><td><strong>$${(data.auxilioTransporte + data.prestaciones.total).toLocaleString()}</strong></td></tr>
+                    </tbody></table>
+                </div>
+                
+                <div style="margin-bottom:20px;">
+                    <h4 style="color:var(--error);margin-bottom:15px;font-size:14px;">Deducciones</h4>
+                    <table class="result-table"><tbody>
+                    <tr class="deduccion-row"><td>Salud (4% sobre total ganado)</td><td>-</td><td>-$${data.deducciones.salud.toLocaleString()}</td></tr>
+                    <tr class="deduccion-row"><td>Pensión (4% sobre total ganado)</td><td>-</td><td>-$${data.deducciones.pension.toLocaleString()}</td></tr>
+                    <tr class="section-total"><td><strong>TOTAL DEDUCCIONES</strong></td><td>-</td><td style="color:var(--error)"><strong>-$${data.deducciones.total.toLocaleString()}</strong></td></tr>
+                    </tbody></table>
+                </div>`;
+            }
+            
+            // Calcular totales para mostrar
+            let totalRodamiento = data.rodamientoActivo ? data.valores.rodamiento : 0;
+            let totalParafiscales = data.parafiscalesActivos ? (data.auxilioTransporte + data.prestaciones.total) : 0;
+            let totalDeducciones = data.parafiscalesActivos ? data.deducciones.total : 0;
+            
+            // Mostrar días compensatorios solo si hay valor
+            let diasCompensatoriosHTML = '';
+            if(data.diasCompensatorios > 0){
+                diasCompensatoriosHTML = `
+                <div style="margin-bottom:20px;">
+                    <h4 style="color:var(--accent);margin-bottom:15px;font-size:14px;">Días Compensatorios</h4>
+                    <table class="result-table"><tbody>
+                    <tr><td>Días Compensatorios (${data.diasCompensatorios} días)</td><td>${data.diasCompensatorios} días × ($${data.salarioBase.toLocaleString()} ÷ 30)</td><td>$${data.valores.diasCompensatorios.toLocaleString()}</td></tr>
+                    </tbody></table>
+                </div>`;
+            }
+            
+            // LÍNEA SEPARADORA cuando solo está activo el rodamiento
+            let separadorHTML = '';
+            if(data.rodamientoActivo && !data.parafiscalesActivos) {
+                separadorHTML = '<div class="separator-line"></div>';
+            }
+            
+            document.getElementById('resultadosContent').innerHTML = `
+            <div style="margin-bottom:20px;">
+                <h4 style="color:var(--primary);margin-bottom:15px;font-size:14px;">Base de Cálculo</h4>
+                <table class="result-table"><tbody>
+                <tr><td>Salario Base Mensual</td><td>-</td><td>$${data.salarioBase.toLocaleString()}</td></tr>
+                <tr><td>Salario Proporcional</td><td>(30 días mensuales)</td><td><strong>$${data.salarioProporcional.toLocaleString()}</strong></td></tr>
+                <tr><td>Valor Hora Ordinaria</td><td>($${data.salarioProporcional.toLocaleString()} ÷ 240)</td><td><strong>$${Math.round(data.valorHora).toLocaleString()}</strong></td></tr>
+                </tbody></table>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <h4 style="color:var(--primary);margin-bottom:15px;font-size:14px;">Desglose de Horas</h4>
+                <table class="result-table"><tbody>
+                <tr><td>Horas Ordinarias Diurnas (6:00-21:00)</td><td>${Math.round(data.horas.horasOrdinariasDiurnas)}h</td><td>$${data.valores.ordinariasDiurnas.toLocaleString()}</td></tr>
+                <tr><td>Horas Ordinarias Nocturnas (21:00-6:00, +35%)</td><td>${Math.round(data.horas.horasOrdinariasNocturnas)}h</td><td>$${data.valores.ordinariasNocturnas.toLocaleString()}</td></tr>
+                <tr><td>Horas Extras Diurnas (+25%)</td><td>${Math.round(data.horas.horasExtrasDiurnas)}h</td><td>$${data.valores.extrasDiurnas.toLocaleString()}</td></tr>
+                <tr><td>Horas Extras Nocturnas (+75%)</td><td>${Math.round(data.horas.horasExtrasNocturnas)}h</td><td>$${data.valores.extrasNocturnas.toLocaleString()}</td></tr>
+                <tr><td>Horas Festivas/Dominicales Diurnas (+100%)</td><td>${Math.round(data.horas.horasFestivasDiurnas)}h</td><td>$${data.valores.festivaDiurna.toLocaleString()}</td></tr>
+                <tr><td>Horas Festivas/Dominicales Nocturnas (+150%)</td><td>${Math.round(data.horas.horasFestivasNocturnas)}h</td><td>$${data.valores.festivaNocturna.toLocaleString()}</td></tr>
+                <tr><td>Horas Extras Festivas Diurnas (+125%)</td><td>${Math.round(data.horas.horasExtrasFestivasDiurnas)}h</td><td>$${data.valores.extraFestivaDiurna.toLocaleString()}</td></tr>
+                <tr><td>Horas Extras Festivas Nocturnas (+225%)</td><td>${Math.round(data.horas.horasExtrasFestivasNocturnas)}h</td><td>$${data.valores.extraFestivaNocturna.toLocaleString()}</td></tr>
+                <tr class="section-total"><td><strong>TOTAL HORAS</strong></td><td><strong>${Math.round(
+                    data.horas.horasOrdinariasDiurnas + data.horas.horasOrdinariasNocturnas +
+                    data.horas.horasExtrasDiurnas + data.horas.horasExtrasNocturnas +
+                    data.horas.horasFestivasDiurnas + data.horas.horasFestivasNocturnas +
+                    data.horas.horasExtrasFestivasDiurnas + data.horas.horasExtrasFestivasNocturnas
+                )}h</strong></td><td><strong>$${data.subtotal.toLocaleString()}</strong></td></tr>
+                </tbody></table>
+            </div>
+            
+            ${rodamientoHTML}
+            ${diasCompensatoriosHTML}
+            ${parafiscalesHTML}
+            ${separadorHTML}
+
+            <table class="result-table">
+            <tbody>
+            <tr><td><strong>Subtotal Devengado (Horas)</strong></td><td>-</td><td><strong>$${data.subtotal.toLocaleString()}</strong></td></tr>
+            ${data.rodamientoActivo ? `<tr><td><strong>Rodamiento</strong></td><td>-</td><td><strong>$${data.valores.rodamiento.toLocaleString()}</strong></td></tr>` : ''}
+            ${data.diasCompensatorios > 0 ? `<tr><td><strong>Días Compensatorios</strong></td><td>${data.diasCompensatorios} días</td><td><strong>$${data.valores.diasCompensatorios.toLocaleString()}</strong></td></tr>` : ''}
+            ${data.parafiscalesActivos ? `<tr><td><strong>Total Parafiscales</strong></td><td>-</td><td><strong>$${totalParafiscales.toLocaleString()}</strong></td></tr>` : ''}
+            <tr><td><strong>TOTAL GANADO</strong></td><td>-</td><td style="color:var(--success)"><strong>$${(data.subtotal + totalRodamiento + data.valores.diasCompensatorios + totalParafiscales).toLocaleString()}</strong></td></tr>
+            ${data.parafiscalesActivos ? `<tr class="deduccion-row"><td><strong>Total Deducciones</strong></td><td>-</td><td style="color:var(--error)"><strong>-$${totalDeducciones.toLocaleString()}</strong></td></tr>` : ''}
+            </tbody></table>
+
+            <table class="result-table" style="margin-top:20px;">
+            <tr class="total-row"><td><strong>TOTAL A PAGAR</strong></td><td>-</td><td><strong>$${data.total.toLocaleString()}</strong></td></tr>
+            </table>`;
+        }
+
+        /* ----------  GUARDAR / PDF / NUEVA ---------- */
+        function guardarLiquidacion(){
+            const liquidacion={id:Date.now(),fecha:new Date().toLocaleString(),jornadas:jornadas.length,total:document.querySelector('.total-row td:last-child').textContent};
+            let guardadas=JSON.parse(localStorage.getItem('liquidaciones')||'[]');
+            guardadas.unshift(liquidacion);
+            localStorage.setItem('liquidaciones',JSON.stringify(guardadas));
+            alert('✅ Liquidación guardada');nuevaLiquidacion();
+        }
+        function generarPDF(){
+            const contenido=`LIQUIDACIÓN DE NÓMINA - VIGILANTE
+=====================================
+Fecha: ${new Date().toLocaleDateString()}
+Hora: ${new Date().toLocaleTimeString()}
+Jornadas procesadas: ${jornadas.length}
+Días trabajados: ${new Set(jornadas.map(j=>j.inicio.toDateString())).size}
+Días compensatorios: ${document.getElementById('diasCompensatorios').value}
+Rodamiento: ${rodamientoActivo ? 'ACTIVO' : 'INACTIVO'}
+Parafiscales: ${parafiscalesActivos ? 'ACTIVOS' : 'INACTIVOS'}
+
+HORARIO: 06:00-21:00 (Diurno) | 21:00-06:00 (Nocturno)
+SALARIO: Base mensual completo (siempre 30 días)
+DÍAS COMPENSATORIOS: (salario/30 × días compensados) - solo si hay
+
+DETALLES DEL CÁLCULO:
+${document.getElementById('resultadosContent').innerText}
+
+----------------------------------------
+Generado por Liquidador Pro - Vigilantes`;
+            const blob=new Blob([contenido],{type:'text/plain'});
+            const url=URL.createObjectURL(blob);
+            const a=document.createElement('a');a.href=url;a.download=`liquidacion-${new Date().toISOString().split('T')[0]}.txt`;a.click();
+            alert('✅ Comprobante generado');
+        }
+        function nuevaLiquidacion(){
+            jornadas=[];mostrarJornadas();document.getElementById('resultados').style.display='none';
+            setHorariosPredeterminados();
+            window.scrollTo(0,0);
+        }
+    </script>
+</body>
+</html>
