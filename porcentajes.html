@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Valores por Hora</title>
+    <meta name="theme-color" content="#0f0f23">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root{--primary:#6366f1;--primary-dark:#4f46e5;--secondary:#8b5cf6;--accent:#06b6d4;--dark:#0f0f23;--darker:#050510;--light:#fff;--gray:#94a3b8;--success:#10b981;--error:#ef4444;--warning:#f59e0b;--input-bg:rgba(255,255,255,.08);--input-border:rgba(255,255,255,.2);}
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--darker);color:var(--light);min-height:100vh;font-size:14px;overflow-x:hidden;}
+        
+        /* ELIMINÉ TODO EL CSS DEL LOGIN */
+        
+        .header{background:linear-gradient(135deg,var(--darker) 0%,#1a1a3a 100%);padding:20px;box-shadow:0 4px 20px rgba(0,0,0,.3);position:sticky;top:0;z-index:100;}
+        .header-content{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;}
+        .logo{display:flex;align-items:center;gap:15px;}
+        .logo i{font-size:2rem;color:var(--primary);}
+        .logo h1{font-size:1.5rem;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+        
+        /* CONTENIDO PRINCIPAL */
+        .main-content{
+            padding:30px 0;
+            width:100%;
+        }
+        
+        .card{
+            background:var(--input-bg);
+            backdrop-filter:blur(10px);
+            border:1px solid var(--input-border);
+            border-radius:16px;
+            padding:30px;
+            margin:0 20px 30px 20px;
+            transition:all .3s ease;
+        }
+        
+        /* TABLA AJUSTADA */
+        #tablaContainer {
+            width:100%;
+            margin:0;
+            padding:0;
+        }
+        
+        .valores-table{
+            width:100%;
+            border-collapse:collapse;
+            margin:0;
+            font-size:13px;
+            table-layout:fixed;
+        }
+        .valores-table th,
+        .valores-table td{
+            padding:12px 15px;
+            text-align:left;
+            border-bottom:1px solid rgba(255,255,255,.1);
+            word-wrap:break-word;
+            overflow-wrap:break-word;
+        }
+        .valores-table th{
+            background:rgba(255,255,255,.05);
+            color:var(--primary);
+            font-weight:600;
+            font-size:12px;
+            text-transform:uppercase;
+            letter-spacing:.5px;
+            padding:15px;
+            text-align:center;
+        }
+        .valores-table td{
+            color:var(--light);
+            font-size:13px;
+            font-weight:500;
+            padding:14px 15px;
+            line-height:1.4;
+        }
+        .valores-table tr:hover{
+            background:rgba(255,255,255,.03);
+        }
+        
+        /* COLUMNAS AJUSTADAS - TIPO DE HORA MÁS PEQUEÑA, VALOR HORA MÁS GRANDE */
+        .tipo-col{
+            width:25%;
+            color:var(--light);
+            font-weight:500;
+            font-size:12px;
+        }
+        .horario-col{
+            width:25%;
+            color:var(--gray);
+            font-size:12px;
+        }
+        .porcentaje-col{
+            width:15%;
+            color:var(--accent);
+            font-weight:600;
+            font-size:12px;
+            text-align:center;
+        }
+        .valor-col{
+            width:25%;
+            color:var(--success);
+            font-weight:700;
+            text-align:right;
+            font-size:14px;
+        }
+        
+        /* FILAS CON COLORES */
+        .ordinaria-row{background:rgba(99,102,241,0.05);}
+        .nocturna-row{background:rgba(139,92,246,0.05);}
+        .extra-row{background:rgba(245,158,11,0.05);}
+        .festiva-row{background:rgba(239,68,68,0.05);}
+        .extra-festiva-row{background:rgba(6,182,212,0.05);}
+        
+        /* RESTANTE DEL CSS */
+        .input-group{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+        .input-group label{color:var(--light);font-weight:500;font-size:14px;text-shadow:0 1px 2px rgba(0,0,0,.5);}
+        input{width:100%;padding:14px 18px;background:var(--input-bg);border:2px solid var(--input-border);border-radius:12px;color:var(--light);font-size:16px;font-weight:500;transition:all .3s ease;}
+        input:focus{outline:none;border-color:var(--primary);background:rgba(255,255,255,.12);}
+        input::placeholder{color:var(--gray);}
+        .btn-primary{background:linear-gradient(135deg,var(--primary),var(--secondary));border:none;border-radius:12px;color:#fff;padding:14px 28px;font-size:16px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:10px;box-shadow:0 4px 15px rgba(99,102,241,.3);}
+        .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(99,102,241,.4);}
+        
+        .salario-container{
+            display:flex;
+            gap:20px;
+            align-items:flex-end;
+            margin-bottom:20px;
+        }
+        
+        .salario-input{
+            flex:1;
+        }
+        
+        .calc-btn{
+            padding:14px 30px;
+        }
+        
+        /* RESPONSIVE */
+        @media(max-width:768px){
+            .valores-table{
+                font-size:12px;
+            }
+            .valores-table th,
+            .valores-table td{
+                padding:10px 12px;
+            }
+            .valores-table th{
+                padding:12px;
+                font-size:11px;
+            }
+            .valores-table td{
+                font-size:12px;
+                padding:11px 12px;
+            }
+            .tipo-col{width:28%; font-size:11px;}
+            .horario-col{width:27%;}
+            .porcentaje-col{width:15%; font-size:11px;}
+            .valor-col{width:20%; font-size:13px;}
+            body{font-size:13px;}
+            .salario-container{
+                flex-direction:column;
+                gap:15px;
+            }
+            .calc-btn{
+                width:100%;
+                justify-content:center;
+            }
+            .card{
+                margin:0 10px 30px 10px;
+                padding:20px;
+            }
+        }
+        
+        @media(max-width:480px){
+            .valores-table{
+                font-size:11px;
+            }
+            .valores-table th,
+            .valores-table td{
+                padding:8px 10px;
+            }
+            .valores-table th{
+                font-size:10px;
+                padding:10px;
+            }
+            .valores-table td{
+                font-size:11px;
+                padding:9px 10px;
+            }
+            .tipo-col{width:30%; font-size:10px;}
+            .horario-col{width:25%;}
+            .porcentaje-col{width:15%; font-size:10px;}
+            .valor-col{width:20%; font-size:12px;}
+        }
+    </style>
+</head>
+<body>
+    <!-- ❌ ELIMINÉ COMPLETAMENTE EL LOGIN ❌ -->
+    
+    <!-- APP - DIRECTAMENTE VISIBLE -->
+    <div class="app-container" id="mainApp" style="display:block;"> <!-- CAMBIÉ A DISPLAY:BLOCK -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo"><i class="fas fa-calculator"></i><h1>Calculadora de Horas</h1></div>
+                <!-- También quité el botón de "Salir" ya que no hay login -->
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="card fade-in">
+                <h3><i class="fas fa-cog"></i> Configuración Base</h3>
+                <div class="salario-container">
+                    <div class="input-group salario-input">
+                        <label for="salarioBase">Salario Base Mensual</label>
+                        <input type="number" id="salarioBase" placeholder="Ingrese salario base" value="1300000">
+                    </div>
+                    <button class="btn-primary calc-btn" onclick="calcularValores()">
+                        <i class="fas fa-calculator"></i> Calcular Valores
+                    </button>
+                </div>
+                <div style="color:var(--gray);font-size:13px;margin-top:10px;">
+                    <p><i class="fas fa-info-circle"></i> El sistema calcula automáticamente para 30 días trabajados</p>
+                </div>
+            </div>
+
+            <!-- TABLA FUERA DEL CARD -->
+            <div id="tablaContainer">
+                <!-- La tabla se generará aquí -->
+                <p style="color:var(--gray);text-align:center;padding:30px;">
+                    <i class="fas fa-clock" style="font-size:2.5rem;margin-bottom:15px;display:block;"></i>
+                    Ingrese el salario base y haga clic en "Calcular Valores" para ver la tabla completa
+                </p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        /* ❌ ELIMINÉ TODO EL CÓDIGO DEL LOGIN ❌ */
+        
+        /* ----------  CALCULAR VALORES ---------- */
+        function calcularValores(){
+            const salarioBase = parseFloat(document.getElementById('salarioBase').value) || 0;
+            
+            if(salarioBase === 0){
+                alert('⚠️ Ingrese el salario base');
+                return;
+            }
+            
+            const valorHoraOrdinaria = salarioBase / 240;
+            const valorDia = salarioBase / 30;
+            const subsidioTransporteTotal = 162000;
+            
+            const valores = {
+                ordinariaDiurna: {
+                    tipo: "Hora Ordinaria Diurna",
+                    horario: "6:00 a.m. - 9:00 p.m.",
+                    porcentaje: "0%",
+                    valor: Math.round(valorHoraOrdinaria),
+                    clase: "ordinaria-row"
+                },
+                ordinariaNocturna: {
+                    tipo: "Hora Ordinaria Nocturna",
+                    horario: "9:00 p.m. - 6:00 a.m.",
+                    porcentaje: "+35%",
+                    valor: Math.round(valorHoraOrdinaria * 1.35),
+                    clase: "nocturna-row"
+                },
+                extraDiurna: {
+                    tipo: "Hora Extra Diurna",
+                    horario: "6:00 a.m. - 9:00 p.m.",
+                    porcentaje: "+30%",
+                    valor: Math.round(valorHoraOrdinaria * 1.30),
+                    clase: "extra-row"
+                },
+                extraNocturna: {
+                    tipo: "Hora Extra Nocturna",
+                    horario: "9:00 p.m. - 6:00 a.m.",
+                    porcentaje: "+85%",
+                    valor: Math.round(valorHoraOrdinaria * 1.85),
+                    clase: "extra-row"
+                },
+                festivaDiurna: {
+                    tipo: "Hora Festiva/ Dominical Diurna",
+                    horario: "6:00 a.m. - 9:00 p.m.",
+                    porcentaje: "+110%",
+                    valor: Math.round(valorHoraOrdinaria * 2.10),
+                    clase: "festiva-row"
+                },
+                festivaNocturna: {
+                    tipo: "Hora Festiva/ Dominical Nocturna",
+                    horario: "9:00 p.m. - 6:00 a.m.",
+                    porcentaje: "+160%",
+                    valor: Math.round(valorHoraOrdinaria * 2.60),
+                    clase: "festiva-row"
+                },
+                extraFestivaDiurna: {
+                    tipo: "Hora Extra Festiva Diurna",
+                    horario: "6:00 a.m. - 9:00 p.m.",
+                    porcentaje: "+140%",
+                    valor: Math.round(valorHoraOrdinaria * 2.40),
+                    clase: "extra-festiva-row"
+                },
+                extraFestivaNocturna: {
+                    tipo: "Hora Extra Festiva Nocturna",
+                    horario: "9:00 p.m. - 6:00 a.m.",
+                    porcentaje: "+245%",
+                    valor: Math.round(valorHoraOrdinaria * 3.45),
+                    clase: "extra-festiva-row"
+                }
+            };
+            
+            // TABLA SIN INICIOS DE SECCIÓN EN LA TABLA
+            const tablaHTML = `
+            <table class="valores-table">
+                <thead>
+                    <tr>
+                        <th class="tipo-col">TIPO DE HORA</th>
+                        <th class="horario-col">HORARIO</th>
+                        <th class="porcentaje-col">RECARGO</th>
+                        <th class="valor-col">VALOR/HORA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="tipo-col">Salario Base Mensual</td>
+                        <td class="horario-col">Base 30 días</td>
+                        <td class="porcentaje-col">-</td>
+                        <td class="valor-col">$${salarioBase.toLocaleString()}</td>
+                    </tr>
+                    <tr>
+                        <td class="tipo-col">Valor Hora Ordinaria</td>
+                        <td class="horario-col">(Base cálculo)</td>
+                        <td class="porcentaje-col">0%</td>
+                        <td class="valor-col">$${Math.round(valorHoraOrdinaria).toLocaleString()}</td>
+                    </tr>
+                    <tr>
+                        <td class="tipo-col">Valor Día Trabajado</td>
+                        <td class="horario-col">(Salario ÷ 30)</td>
+                        <td class="porcentaje-col">-</td>
+                        <td class="valor-col">$${Math.round(valorDia).toLocaleString()}</td>
+                    </tr>
+                    <tr>
+                        <td class="tipo-col">Subsidio Transporte</td>
+                        <td class="horario-col">(30 días)</td>
+                        <td class="porcentaje-col">-</td>
+                        <td class="valor-col">$${subsidioTransporteTotal.toLocaleString()}</td>
+                    </tr>
+                    
+                    <tr class="${valores.ordinariaDiurna.clase}">
+                        <td class="tipo-col">${valores.ordinariaDiurna.tipo}</td>
+                        <td class="horario-col">${valores.ordinariaDiurna.horario}</td>
+                        <td class="porcentaje-col">${valores.ordinariaDiurna.porcentaje}</td>
+                        <td class="valor-col">$${valores.ordinariaDiurna.valor.toLocaleString()}</td>
+                    </tr>
+                    <tr class="${valores.ordinariaNocturna.clase}">
+                        <td class="tipo-col">${valores.ordinariaNocturna.tipo}</td>
+                        <td class="horario-col">${valores.ordinariaNocturna.horario}</td>
+                        <td class="porcentaje-col">${valores.ordinariaNocturna.porcentaje}</td>
+                        <td class="valor-col">$${valores.ordinariaNocturna.valor.toLocaleString()}</td>
+                    </tr>
+                    
+                    <tr class="${valores.extraDiurna.clase}">
+                        <td class="tipo-col">${valores.extraDiurna.tipo}</td>
+                        <td class="horario-col">${valores.extraDiurna.horario}</td>
+                        <td class="porcentaje-col">${valores.extraDiurna.porcentaje}</td>
+                        <td class="valor-col">$${valores.extraDiurna.valor.toLocaleString()}</td>
+                    </tr>
+                    <tr class="${valores.extraNocturna.clase}">
+                        <td class="tipo-col">${valores.extraNocturna.tipo}</td>
+                        <td class="horario-col">${valores.extraNocturna.horario}</td>
+                        <td class="porcentaje-col">${valores.extraNocturna.porcentaje}</td>
+                        <td class="valor-col">$${valores.extraNocturna.valor.toLocaleString()}</td>
+                    </tr>
+                    
+                    <tr class="${valores.festivaDiurna.clase}">
+                        <td class="tipo-col">${valores.festivaDiurna.tipo}</td>
+                        <td class="horario-col">${valores.festivaDiurna.horario}</td>
+                        <td class="porcentaje-col">${valores.festivaDiurna.porcentaje}</td>
+                        <td class="valor-col">$${valores.festivaDiurna.valor.toLocaleString()}</td>
+                    </tr>
+                    <tr class="${valores.festivaNocturna.clase}">
+                        <td class="tipo-col">${valores.festivaNocturna.tipo}</td>
+                        <td class="horario-col">${valores.festivaNocturna.horario}</td>
+                        <td class="porcentaje-col">${valores.festivaNocturna.porcentaje}</td>
+                        <td class="valor-col">$${valores.festivaNocturna.valor.toLocaleString()}</td>
+                    </tr>
+                    
+                    <tr class="${valores.extraFestivaDiurna.clase}">
+                        <td class="tipo-col">${valores.extraFestivaDiurna.tipo}</td>
+                        <td class="horario-col">${valores.extraFestivaDiurna.horario}</td>
+                        <td class="porcentaje-col">${valores.extraFestivaDiurna.porcentaje}</td>
+                        <td class="valor-col">$${valores.extraFestivaDiurna.valor.toLocaleString()}</td>
+                    </tr>
+                    <tr class="${valores.extraFestivaNocturna.clase}">
+                        <td class="tipo-col">${valores.extraFestivaNocturna.tipo}</td>
+                        <td class="horario-col">${valores.extraFestivaNocturna.horario}</td>
+                        <td class="porcentaje-col">${valores.extraFestivaNocturna.porcentaje}</td>
+                        <td class="valor-col">$${valores.extraFestivaNocturna.valor.toLocaleString()}</td>
+                    </tr>
+                </tbody>
+            </table>`;
+            
+            document.getElementById('tablaContainer').innerHTML = tablaHTML;
+        }
+        
+        // Calcular valores automáticamente al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            calcularValores();
+        });
+    </script>
+</body>
+</html>
